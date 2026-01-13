@@ -271,12 +271,9 @@ function App() {
         const exportBot = JSON.parse(JSON.stringify(bot));
 
         // AUTO-CONFIGURE API URL for Exported Widgets
-        // If no explicit API URL is set, and we are not on localhost, 
-        // automatically use the current domain as the backend "brain".
-        if (!exportBot.settings.apiBaseUrl &&
-          !window.location.hostname.includes('localhost') &&
-          !window.location.hostname.includes('127.0.0.1')) {
-          exportBot.settings.apiBaseUrl = window.location.origin;
+        // Default to the production backend "Brain"
+        if (!exportBot.settings.apiBaseUrl) {
+          exportBot.settings.apiBaseUrl = 'https://bf.memorykeep.cloud';
         }
 
         // Inject auth info for usage tracking

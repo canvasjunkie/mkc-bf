@@ -291,12 +291,12 @@ export const BotBuilder: React.FC<BotBuilderProps> = ({ bot, onBotUpdate, subscr
                         apiBaseUrl: e.target.value
                       })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                      placeholder="https://your-app.netlify.app"
+                      placeholder="https://bf.memorykeep.cloud"
                     />
                     <p className="text-xs text-gray-500 mt-2">
                       <strong>Crucial for Exported Widgets:</strong> If you embed your bot on a different website (like Vercel), this tells it where to find the "brain".
                       <br className="mb-1" />
-                      <span className="text-indigo-600">Tip: Leave blank to automatically use the URL where you created this bot (recommended).</span>
+                      <span className="text-indigo-600">Tip: Leave blank to default to <strong>https://bf.memorykeep.cloud</strong>.</span>
                     </p>
 
                     {/* Localhost Warning */}
