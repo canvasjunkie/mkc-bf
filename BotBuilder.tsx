@@ -298,6 +298,16 @@ export const BotBuilder: React.FC<BotBuilderProps> = ({ bot, onBotUpdate, subscr
                       <br className="mb-1" />
                       <span className="text-indigo-600">Tip: Leave blank to automatically use the URL where you created this bot (recommended).</span>
                     </p>
+
+                    {/* Localhost Warning */}
+                    {!bot.settings.apiBaseUrl && (window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1')) && (
+                      <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded-md p-3 flex gap-2">
+                        <div className="flex-shrink-0 text-yellow-600">⚠️</div>
+                        <div className="text-xs text-yellow-800">
+                          <strong>Developing Locally?</strong> You must enter your live Netlify URL above (e.g., <code>https://my-app.netlify.app</code>) before exporting, or your widget won't be able to connect when you host it elsewhere.
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
