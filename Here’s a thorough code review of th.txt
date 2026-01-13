@@ -1,0 +1,293 @@
+Here’s a thorough code review of the project in the ZIP you provided (React + TypeScript Vite app + PHP backend). I focused on **quality/readability, standards, bugs, security, and performance**. I’m going to be blunt where it matters—especially around security—because a couple issues are high risk.
+
+---
+
+## 1) High-risk security issues (fix these first)
+
+### A) **Secrets are committed into the codebase**
+
+**Files:**
+
+* `.env.local` contains a live-looking `VITE_GEMINI_API_KEY=...`
+* `php-backend/config.php` contains **DB credentials** and **PayPal IDs**
+
+**Why this is critical**
+
+* `VITE_*` env vars are **bundled into the client** at build time. That means your Gemini key is effectively public if the frontend uses it.
+* DB credentials in a repo/zip are a breach waiting to happen.
+
+**Fix**
+
+* Immediately **rotate** the Gemini API key, DB password, and any PayPal credentials that must be private.
+* Move backend secrets to environment variables:
+
+  * PHP: read via `getenv('DB_PASS')`, `getenv('PAYPAL_CLIENT_ID')`, etc.
+* Add `.env*` and any secret config to `.gitignore` (you already have `.gitignore`, but ensure it covers these).
+
+---
+
+### B) **Stored token + XSS = account compromise**
+
+**Frontend:**
+
+* `src/components/ChatWidget.tsx` uses `dangerouslySetInnerHTML` to render message text:
+
+  ```tsx
+  <div dangerouslySetInnerHTML={{ __html: message.text ... }} />
+  ```
+* `src/core/SubscriptionService.ts` stores auth token in **localStorage**:
+
+  ```ts
+  localStorage.setItem('mk_auth_token', token);
+  ```
+
+**Why this is critical**
+If an attacker can inject HTML/JS into `message.text` (from user input, bot output, or stored memory/lead fields), they can run script in your origin and steal `localStorage.mk_auth_token`.
+
+**Fix options (recommended order)**
+
+1. **Stop using `dangerouslySetInnerHTML`** for chat content.
+
+   * Use a markdown renderer that **sanitizes** (e.g., `react-markdown` + `rehype-sanitize`) or render plain text with formatting logic that never produces raw HTML.
+2. If you must render HTML, sanitize with something like **DOMPurify**:
+
+   * `DOMPurify.sanitize(html, {ALLOWED_TAGS: ...})`
+3. Move auth away from localStorage if possible:
+
+   * Prefer **HttpOnly secure cookies** (best)
+   * If you can’t, at least use **sessionStorage** + strict CSP + sanitize output
+
+---
+
+### C) Token leakage through URL query params
+
+**`src/core/SubscriptionService.ts`** calls:
+
+```ts
+fetch(`${API_BASE}/status.php?at=${encodeURIComponent(token)}`, { headers: { Authorization: `Bearer ${token}` }})
+```
+
+**Problems**
+
+* Token ends up in:
+
+  * Browser history
+  * Server logs
+  * Referrer headers (depending on navigation)
+* Backend expects `?token=...` per comments, not `?at=...` (even though you also pass Authorization)
+
+**Fix**
+
+* Remove the query param entirely and rely on the Authorization header:
+
+  ```ts
+  fetch(`${API_BASE}/status.php`, { headers: { Authorization: `Bearer ${token}` }})
+  ```
+* For POST endpoints, send JSON body `{ token }` if you want redundancy.
+
+---
+
+## 2) Backend API concerns (PHP)
+
+### A) CORS is wide open
+
+In `php-backend/api/status.php`:
+
+```php
+header('Access-Control-Allow-Origin: *');
+```
+
+If you’re using bearer tokens, this isn’t automatically catastrophic, but it’s still risky—especially if tokens can be stolen via XSS or leaked in URLs.
+
+**Fix**
+
+* Restrict to your known origins:
+
+  * `https://memorykeep.cloud`
+  * your app domains / netlify domains you control
+
+---
+
+### B) Rate limiting likely ineffective
+
+`authenticateApiRequest()` calls `checkRateLimit()` which uses `$_SESSION`.
+
+But your API is called cross-origin with `Access-Control-Allow-Origin: *` and you are not using credentialed requests, so PHP sessions may not persist reliably (no cookies), meaning rate limiting may reset every request.
+
+**Fix**
+
+* Rate limit keyed by `userId`/token using a shared store:
+
+  * DB table with timestamps, or better: Redis / KV store
+* Even a simple DB-based sliding window is more reliable than session for APIs.
+
+---
+
+### C) Message usage endpoint race condition
+
+In `php-backend/api/use-message.php`, the logic is “read usage → check limit → update +1”.
+Under concurrent requests, a user can exceed their limit due to timing.
+
+**Fix**
+Do the increment atomically. Example approach:
+
+* `UPDATE users SET messages_used = messages_used + 1 WHERE id = ? AND messages_used < ?`
+* Then check affected rows.
+
+---
+
+### D) Token storage best practice
+
+You’re generating auth tokens securely (`random_bytes`), which is good.
+But storing tokens **in plaintext** in the DB means a DB leak compromises all tokens.
+
+**Fix**
+
+* Store a hash of the token (e.g., SHA-256) and compare hashes:
+
+  * DB stores `auth_token_hash`
+  * client sends token
+  * server hashes and compares
+
+---
+
+## 3) Frontend code quality & maintainability
+
+### A) `ChatWidget.tsx` is doing too much
+
+At ~23KB, it’s hard to reason about and easy to break.
+
+**Refactor suggestion**
+Split into:
+
+* `useChatState()` hook (messages, input, loading, error)
+* `useWidgetConfig(botId)` hook
+* `<ChatHeader />`, `<ChatMessages />`, `<ChatInput />`, `<LeadCaptureForm />`
+* Keep rendering components “dumb” and push logic into hooks/services
+
+This improves testability and makes security auditing easier.
+
+---
+
+### B) ID generation uses `Math.random()`
+
+In `LeadService`:
+
+```ts
+id: `lead-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+```
+
+**Fix**
+Use `crypto.randomUUID()`:
+
+```ts
+id: `lead-${crypto.randomUUID()}`
+```
+
+---
+
+### C) Logging may leak sensitive user data
+
+`GeminiService.ts` logs request/response data:
+
+```ts
+console.log('Gemini response data:', data);
+```
+
+If chat contains personal info, this ends up in logs.
+
+**Fix**
+
+* Gate logs behind a dev flag:
+
+  * `if (import.meta.env.DEV) console.log(...)`
+* Never log full model responses in production.
+
+---
+
+### D) Error typing
+
+There are places using `catch (error: any)`.
+Prefer `unknown` and narrow safely:
+
+```ts
+catch (error: unknown) {
+  const message = error instanceof Error ? error.message : 'Unknown error';
+}
+```
+
+---
+
+## 4) Standards & consistency
+
+### A) Duplicate / stray files at repo root
+
+The zip includes `App.tsx`, `ChatWidget.tsx`, etc. at root *and* a `src/` folder with the real app.
+
+**Why it matters**
+Confuses contributors, build tooling, and future you.
+
+**Fix**
+
+* Remove root duplicates (or ensure only one source-of-truth)
+* Ensure imports reference `src/*` consistently
+
+---
+
+### B) Config naming mismatch (`token` vs `at`)
+
+Backend docs say `?token=...` but frontend uses `?at=...`.
+
+Even if Authorization works, mismatches like this tend to create “it randomly fails” bugs later.
+
+---
+
+## 5) Performance opportunities
+
+### A) Rendering many messages
+
+If chat histories grow, re-render cost increases.
+
+**Improvements**
+
+* Memoize message items (`React.memo`)
+* Virtualize message list if histories can get large (e.g., `react-virtual`)
+
+### B) Storage and migration
+
+`MemorySystem.migrateFromLocalStorage()` looks fine conceptually, but make sure it:
+
+* only runs once (you do via flag)
+* handles partial failures safely (you catch per-key)
+
+Consider adding a versioned migration system as your DB schema evolves.
+
+---
+
+## Quick prioritized action list
+
+**Do now**
+
+1. Rotate keys/passwords and remove them from repo artifacts
+2. Remove token from URL (`?at=...`) everywhere
+3. Eliminate `dangerouslySetInnerHTML` or sanitize aggressively
+4. Move auth token storage away from localStorage (or fix XSS risk first)
+
+**Next**
+5. Fix backend rate limiting (session-based won’t hold)
+6. Fix `use-message.php` to increment atomically
+7. Refactor `ChatWidget.tsx` into components/hooks
+
+---
+
+If you want, I can also do a *second-pass “diff-style” review* focused on:
+
+* exact refactor boundaries for `ChatWidget.tsx`
+* a safe markdown rendering implementation (no XSS)
+* a hardened auth flow (cookie-based, CSRF-safe, no URL token leaks)
+
+Just tell me whether your desired auth model is:
+
+* **pure embed widget** (public) + per-bot limits, or
+* **signed-in dashboard** + private subscription token, or
+* both.

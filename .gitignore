@@ -1,0 +1,41 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+
+# Environment files - NEVER commit these
+.env
+.env.*
+.env.local
+.env.development
+.env.production
+*.local
+
+# PHP backend secrets - use environment variables on server
+php-backend/config.php
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Build artifacts
+node_modules/
+dist/
+
+# ZIP files that might contain secrets
+*.zip

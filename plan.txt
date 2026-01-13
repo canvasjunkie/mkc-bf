@@ -1,0 +1,169 @@
+https://bf.memorykeep/cloud
+
+https://github.com/canvasjunkie/mkc-bf
+
+C:\Users\Julia\.gemini\antigravity\brain\66d7ff20-4542-4a53-8a5b-dd5f92bc1df5\implementation_plan.md.resolved
+
+Bot Factory SaaS Implementation Plan
+Transform the MemoryKeep Bot Factory into a self-service SaaS platform with Netlify Identity auth, PayPal subscription billing, and tiered pricing.
+
+User Review Required
+IMPORTANT
+
+Pricing Structure Needs Your Decision I've proposed a 3-tier model below. Please review the pricing and limits to ensure they align with your business model and costs.
+
+WARNING
+
+API Key Strategy
+
+Free/Starter tiers: Use YOUR Gemini API key (factor cost into pricing)
+Pro tier: Users can optionally provide their own OpenRouter key for more model choices
+You'll need to set your Gemini API key as a Netlify environment variable
+Proposed Tier Structure
+Feature	Free	Starter ($9/mo)	Pro ($29/mo)
+Bots	1	3	Unlimited
+Messages/mo	300	1,000	10,000
+Customization	Name, greeting, color	Full styling	Full styling
+Avatars	❌	✅	✅
+System Prompt	Standard only	Custom	Custom
+FAQ Entries	10	50	Unlimited
+Lead Capture	❌	✅	✅
+White-label Export	❌	✅	✅
+API Key	We provide Gemini	We provide Gemini	Gemini + own OpenRouter
+NOTE
+
+Abuse Protection: Free tier users exceeding 300 messages/month get soft-blocked with upgrade prompt. Repeated abuse = account suspension.
+
+Proposed Changes
+Authentication Layer
+[NEW] 
+AuthContext.tsx
+React context for Netlify Identity user state
+Wrap app with auth provider
+Expose user, login(), logout(), isLoggedIn
+[NEW] 
+LoginPage.tsx
+Self-service sign-up/login page
+Uses Netlify Identity Widget
+Redirect to dashboard after auth
+[MODIFY] 
+netlify.toml
+Enable Netlify Identity service
+User Dashboard & Bot Management
+[NEW] 
+Dashboard.tsx
+User's bot list with create/edit/delete
+Usage stats (messages used, bots count)
+Subscription tier display
+Upgrade prompts when limits approached
+[MODIFY] 
+App.tsx
+Add routing (logged out → login, logged in → dashboard)
+Pass user context throughout app
+Show tier-appropriate features
+Server-Side Bot Storage
+[NEW] 
+bots.ts
+CRUD API for bots stored in Netlify Blobs
+Scoped by user ID from auth token
+Enforce bot limits per tier
+[MODIFY] 
+MemorySystem.ts
+Add API calls to fetch/save bots from server
+Keep IndexedDB as offline cache
+Sync on login
+Subscription & Billing
+[NEW] 
+PricingPage.tsx
+Display tier comparison table
+PayPal Subscribe buttons for each tier
+Handle subscription success/cancel
+[NEW] 
+subscription.ts
+Webhook handler for PayPal subscription events
+Update user's tier in Netlify Blobs
+Track subscription status
+[NEW] 
+usage.ts
+Track message count per user per month
+Reset counters monthly
+Return usage stats for dashboard
+Usage Tracking & Limits
+[MODIFY] 
+chat.ts
+Check user's tier and message count before processing
+Return 429 if limit exceeded
+Increment usage counter on success
+Use YOUR Gemini key for Free/Starter tiers
+Use user's OpenRouter key for Pro tier (if provided)
+Feature Gating
+[NEW] 
+useSubscription.ts
+Hook to check user's current tier
+Helper functions: canCreateBot(), canExportLeads(), hasFeature()
+Show upgrade modals when features blocked
+Required Environment Variables
+Set these in Netlify dashboard:
+
+GEMINI_API_KEY=your-gemini-api-key-here
+PAYPAL_CLIENT_ID=your-paypal-client-id
+PAYPAL_CLIENT_SECRET=your-paypal-secret
+PAYPAL_WEBHOOK_ID=your-webhook-id
+Implementation Order
+Phase 1: Authentication (Day 1)
+
+Netlify Identity setup
+Login/signup flow
+Auth context
+Phase 2: Server Storage (Day 2)
+
+Bots API with user scoping
+Migrate from IndexedDB
+Phase 3: Billing (Day 3)
+
+PayPal subscription setup
+Pricing page
+Webhook handlers
+Phase 4: Limits & Gating (Day 4)
+
+Usage tracking
+Feature gating
+Upgrade prompts
+Verification Plan
+Manual Verification
+Since this involves payment integration and auth flows, manual testing is most appropriate:
+
+Auth Flow Test
+
+Sign up with a new email
+Verify confirmation email received
+Log in successfully
+See empty dashboard
+Tier Limits Test
+
+Free user: Attempt to create 2nd bot → should be blocked
+Free user: Send 101st message → should see limit error
+PayPal Subscription Test
+
+Use PayPal sandbox environment
+Subscribe to Starter tier
+Verify tier updates in dashboard
+Cancel subscription, verify downgrade
+Bot CRUD Test
+
+Create bot → appears in dashboard
+Edit bot → changes persist across page refresh
+Log in from different device → same bots appear
+NOTE
+
+I recommend testing with PayPal Sandbox first before going live. You can create sandbox buyer/seller accounts at developer.paypal.com.
+
+Questions for You
+Are the tier prices right? $9 Starter / $29 Pro - do these feel competitive for your market?
+
+Message limits - Is 100/1,000/10,000 per month reasonable, or should they be higher?
+
+Do you have a PayPal Business account already? You'll need one to accept subscriptions.
+
+Domain - What domain will this be deployed to? (Affects identity config)
+
