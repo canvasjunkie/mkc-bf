@@ -271,10 +271,9 @@ function App() {
         const exportBot = JSON.parse(JSON.stringify(bot));
 
         // AUTO-CONFIGURE API URL for Exported Widgets
-        // Default to the production backend "Brain"
-        if (!exportBot.settings.apiBaseUrl) {
-          exportBot.settings.apiBaseUrl = 'https://bf.memorykeep.cloud';
-        }
+        // ALWAYS use the production backend "Brain" for exported widgets
+        // This ensures exported HTML files connect to the centralized API
+        exportBot.settings.apiBaseUrl = 'https://bf.memorykeep.cloud';
 
         // Inject auth info for usage tracking
         exportBot.phpBackendUrl = 'https://pay.memorykeep.cloud';
