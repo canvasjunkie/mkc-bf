@@ -227,7 +227,13 @@ function App() {
     </style>
 </head>
 <body>
-    <div id="chat-bubble" class="chat-bubble ${bot.widget.bubble.position}">${bot.widget.bubble.icon}</div>
+    <div id="chat-bubble" class="chat-bubble ${bot.widget.bubble.position}">${(() => {
+        const avatarConfig = bot.widget.avatars?.bot;
+        if (avatarConfig && avatarConfig.type !== 'emoji' && avatarConfig.value) {
+          return `<img src="${avatarConfig.value}" alt="Bot" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+        }
+        return avatarConfig?.value || bot.widget.bubble.icon;
+      })()}</div>
     
     <div id="chat-window" class="chat-window chat-${bot.widget.bubble.position}">
         <div class="chat-header">
