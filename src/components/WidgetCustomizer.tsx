@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+// Version: 1.0.1 - Layout Fix
+import React, { useState, useEffect, useRef } from 'react';
 import { Bot } from '../types/Bot';
 import { ChatWidget } from './ChatWidget';
 import { Monitor, Smartphone, Upload, X, Users, Save, Trash2, Key } from 'lucide-react';
