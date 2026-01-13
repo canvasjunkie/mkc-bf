@@ -269,7 +269,8 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ bot, preview = false }) 
 
   // Call server-side chat proxy (API keys stored securely on server)
   const callChatProxy = async (message: string, provider: string): Promise<string> => {
-    const response = await fetch('/api/chat', {
+    const apiBaseUrl = bot.settings.apiBaseUrl || '';
+    const response = await fetch(`${apiBaseUrl}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

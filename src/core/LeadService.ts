@@ -29,10 +29,8 @@ interface SaveLeadResponse {
 
 export class LeadService {
     private static getApiUrl(): string {
-        // When deployed to Netlify, use relative URL
-        // When running locally with netlify dev, also use relative URL
-        // The function will be at /.netlify/functions/leads or /api/leads
-        const baseUrl = window.location.origin;
+        const botConfig = (window as any).BOT_CONFIG;
+        const baseUrl = botConfig?.settings?.apiBaseUrl || window.location.origin;
         return `${baseUrl}/api/leads`;
     }
 
