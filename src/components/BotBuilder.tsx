@@ -19,11 +19,26 @@ export const BotBuilder: React.FC<BotBuilderProps> = ({ bot, onBotUpdate, subscr
   const generateEmbedCode = (url: string) => {
     // Add embed parameter to hide the widget's internal bubble
     const embedUrl = url.includes('?') ? `${url}&embed=true` : `${url}?embed=true`;
+
+    // Determine the bubble content - use avatar image if available, otherwise emoji
+    const avatarConfig = bot.widget.avatars?.bot;
+    const avatarValue = avatarConfig?.value || '';
+    const isImage = avatarValue.startsWith('data:image') || avatarValue.startsWith('http');
+    const isImageType = avatarConfig?.type === 'upload' || avatarConfig?.type === 'library' || avatarConfig?.type === 'url';
+
+    // Create bubble content
+    let bubbleContent: string;
+    if (isImage || isImageType) {
+      bubbleContent = `<img src="${avatarValue}" alt="Chat" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+    } else {
+      bubbleContent = avatarValue || '🤖';
+    }
+
     return `<script>
 (function() {
   var btn = document.createElement('div');
-  btn.innerHTML = '💬';
-  btn.style.cssText = 'position:fixed;bottom:20px;right:20px;width:60px;height:60px;background:${bot.widget.theme.primaryColor};border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:24px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:9998;';
+  btn.innerHTML = '${bubbleContent.replace(/'/g, "\\'")}';
+  btn.style.cssText = 'position:fixed;bottom:20px;right:20px;width:60px;height:60px;background:${bot.widget.bubble.color};border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:24px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:9998;overflow:hidden;';
   
   var iframe = document.createElement('iframe');
   iframe.src = '${embedUrl}';
@@ -38,6 +53,7 @@ export const BotBuilder: React.FC<BotBuilderProps> = ({ bot, onBotUpdate, subscr
 })();
 </script>`;
   };
+
 
   const copyEmbedCode = async () => {
     if (!deployUrl) return;
