@@ -229,13 +229,17 @@ function App() {
 <body>
     <div id="chat-bubble" class="chat-bubble ${bot.widget.bubble.position}">${(() => {
         const avatarConfig = bot.widget.avatars?.bot;
-        // Match ChatWidget.tsx behavior exactly
-        if (!avatarConfig || avatarConfig.type === 'emoji') {
-          // For emoji type, show the emoji value (or fallback to 🤖)
-          return avatarConfig?.value || '🤖';
+        const avatarValue = avatarConfig?.value || '';
+        // Check if it's an image by looking at the value format (more robust than just type)
+        const isImage = avatarValue.startsWith('data:image') || avatarValue.startsWith('http');
+        // Also check type for backwards compatibility
+        const isImageType = avatarConfig?.type === 'upload' || avatarConfig?.type === 'library' || avatarConfig?.type === 'url';
+
+        if (isImage || isImageType) {
+          return `<img src="${avatarValue}" alt="Bot" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
         }
-        // For image/upload/library type, show the image
-        return `<img src="${avatarConfig.value}" alt="Bot" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+        // For emoji, show the emoji value or fallback to 🤖
+        return avatarValue || '🤖';
       })()}</div>
     
     <div id="chat-window" class="chat-window chat-${bot.widget.bubble.position}">
