@@ -228,13 +228,14 @@ function App() {
 </head>
 <body>
     <div id="chat-bubble" class="chat-bubble ${bot.widget.bubble.position}">${(() => {
-        const avatarValue = bot.widget.avatars?.bot?.value;
-        // If avatar is an image (data URL or http URL), show it
-        if (avatarValue && (avatarValue.startsWith('data:') || avatarValue.startsWith('http'))) {
-          return `<img src="${avatarValue}" alt="Bot" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+        const avatarConfig = bot.widget.avatars?.bot;
+        // Match ChatWidget.tsx behavior exactly
+        if (!avatarConfig || avatarConfig.type === 'emoji') {
+          // For emoji type, show the emoji value (or fallback to 🤖)
+          return avatarConfig?.value || '🤖';
         }
-        // Otherwise show the bubble icon
-        return bot.widget.bubble.icon;
+        // For image/upload/library type, show the image
+        return `<img src="${avatarConfig.value}" alt="Bot" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
       })()}</div>
     
     <div id="chat-window" class="chat-window chat-${bot.widget.bubble.position}">
